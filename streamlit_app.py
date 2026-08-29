@@ -1,191 +1,74 @@
 import streamlit as st
 from openai import OpenAI
-from dataclasses import dataclass
-from typing import List
 
+# --------------------------------------------------
+# 기본 화면
+# --------------------------------------------------
 
-# ============================================================
-# 1. 기본 설정
-# ============================================================
+st.title("☕ Coffee Bean Consultant")
 
-st.set_page_config(
-    page_title="커피 원두 추천 챗봇",
-    page_icon="☕",
-    layout="centered"
-)
-
-st.title("☕ 나에게 맞는 원두 찾기")
 st.write(
-    "커피 취향을 편하게 이야기해주세요. "
-    "몇 번의 대화를 통해 당신에게 잘 맞는 원두를 찾아드릴게요."
+    "커피 원두와 생두에 대해 전문적으로 상담받을 수 있는 "
+    "AI 커피 컨설턴트입니다."
 )
 
+# --------------------------------------------------
+# 사이드바 - 커피 선호도
+# --------------------------------------------------
 
-# ============================================================
-# 2. 원두 데이터
-# ============================================================
+st.sidebar.title("☕ 나의 커피 취향")
 
-@dataclass
-class Coffee:
-    name: str
-    origin: str
-    process: str
-    roast: str
+roast_preference = st.sidebar.radio(
+    "선호하는 로스팅 정도",
+    ["약배전", "중배전", "강배전"],
+    index=1
+)
 
-    acidity: float
-    sweetness: float
-    body: float
+acidity_preference = st.sidebar.radio(
+    "선호하는 산미",
+    ["낮음", "보통", "높음"],
+    index=1
+)
 
-    chocolate: float
-    nutty: float
-    caramel: float
-    fruity: float
-    floral: float
+body_preference = st.sidebar.radio(
+    "선호하는 바디감",
+    ["가벼움", "보통", "묵직함"],
+    index=1
+)
 
-    description: str
-    brew_methods: List[str]
+sweetness_preference = st.sidebar.radio(
+    "선호하는 단맛",
+    ["낮음", "보통", "높음"],
+    index=1
+)
 
+flavor_preference = st.sidebar.radio(
+    "선호하는 향미",
+    [
+        "과일 / 베리",
+        "꽃 / 플로럴",
+        "초콜릿 / 견과류",
+        "카라멜 / 브라운슈가",
+        "스파이시 / 허브"
+    ],
+    index=0
+)
 
-COFFEES = [
+brew_preference = st.sidebar.radio(
+    "주로 사용하는 추출방법",
+    [
+        "핸드드립",
+        "에스프레소",
+        "프렌치프레스",
+        "모카포트",
+        "콜드브루"
+    ],
+    index=0
+)
 
-    Coffee(
-        name="브라질 세하도",
-        origin="브라질",
-        process="Natural",
-        roast="Medium",
-
-        acidity=2,
-        sweetness=4,
-        body=4,
-
-        chocolate=5,
-        nutty=5,
-        caramel=4,
-        fruity=2,
-        floral=1,
-
-        description="초콜릿, 견과류, 카라멜처럼 고소하고 달콤한 풍미",
-        brew_methods=["아메리카노", "에스프레소", "핸드드립"]
-    ),
-
-    Coffee(
-        name="콜롬비아 우일라",
-        origin="콜롬비아",
-        process="Washed",
-        roast="Medium",
-
-        acidity=3,
-        sweetness=4,
-        body=3,
-
-        chocolate=4,
-        nutty=3,
-        caramel=4,
-        fruity=3,
-        floral=2,
-
-        description="카라멜과 초콜릿을 중심으로 은은한 과일 향",
-        brew_methods=["아메리카노", "에스프레소", "핸드드립"]
-    ),
-
-    Coffee(
-        name="과테말라 안티구아",
-        origin="과테말라",
-        process="Washed",
-        roast="Medium",
-
-        acidity=3,
-        sweetness=4,
-        body=4,
-
-        chocolate=5,
-        nutty=3,
-        caramel=4,
-        fruity=3,
-        floral=2,
-
-        description="다크 초콜릿과 카라멜, 은은한 과일 느낌",
-        brew_methods=["아메리카노", "에스프레소", "핸드드립"]
-    ),
-
-    Coffee(
-        name="에티오피아 예가체프",
-        origin="에티오피아",
-        process="Washed",
-        roast="Light",
-
-        acidity=5,
-        sweetness=4,
-        body=2,
-
-        chocolate=1,
-        nutty=1,
-        caramel=2,
-        fruity=5,
-        floral=5,
-
-        description="베리, 시트러스, 꽃 향이 선명한 화사한 커피",
-        brew_methods=["핸드드립"]
-    ),
-
-    Coffee(
-        name="케냐 AA",
-        origin="케냐",
-        process="Washed",
-        roast="Light",
-
-        acidity=5,
-        sweetness=4,
-        body=3,
-
-        chocolate=2,
-        nutty=1,
-        caramel=2,
-        fruity=5,
-        floral=3,
-
-        description="베리와 시트러스 계열의 선명한 산미",
-        brew_methods=["핸드드립"]
-    )
-]
-
-
-# ============================================================
-# 3. 사용자 취향 프로필
-# ============================================================
-
-@dataclass
-class UserPreference:
-    acidity: float = 3
-    sweetness: float = 3
-    body: float = 3
-
-    chocolate: float = 3
-    nutty: float = 3
-    caramel: float = 3
-    fruity: float = 3
-    floral: float = 3
-
-    brew_method: str = ""
-
-
-# ============================================================
-# 4. 세션 상태
-# ============================================================
-
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-if "coffee_profile" not in st.session_state:
-    st.session_state.coffee_profile = UserPreference()
-
-if "recommendations" not in st.session_state:
-    st.session_state.recommendations = []
-
-
-# ============================================================
-# 5. OpenAI API Key
-# ============================================================
+# --------------------------------------------------
+# OpenAI API Key
+# --------------------------------------------------
 
 openai_api_key = st.text_input(
     "OpenAI API Key",
@@ -197,413 +80,193 @@ if not openai_api_key:
         "OpenAI API Key를 입력해주세요.",
         icon="🗝️"
     )
-    st.stop()
 
+else:
 
-client = OpenAI(api_key=openai_api_key)
+    # OpenAI Client
+    client = OpenAI(api_key=openai_api_key)
 
+    # --------------------------------------------------
+    # 사용자 커피 선호도
+    # --------------------------------------------------
 
-# ============================================================
-# 6. 시스템 프롬프트
-# ============================================================
+    preference_text = f"""
+사용자의 기본 커피 선호도는 다음과 같습니다.
 
-SYSTEM_PROMPT = """
-당신은 전문 커피 큐레이터입니다.
-
-목표는 사용자의 커피 취향을 대화를 통해 파악하고
-그 취향에 맞는 원두를 추천하는 것입니다.
-
-사용자에게 어려운 커피 전문용어를 먼저 사용하지 마세요.
-
-다음 정보를 대화에서 자연스럽게 파악하세요.
-
-1. 산미 선호도
-2. 단맛 선호도
-3. 바디감 선호도
-4. 초콜릿 풍미 선호도
-5. 견과류 풍미 선호도
-6. 카라멜 풍미 선호도
-7. 과일 풍미 선호도
-8. 꽃 향 선호도
-9. 주로 사용하는 추출 방법
-
-사용자가 이미 알려준 정보는 다시 묻지 마세요.
-
-정보가 충분하지 않다면 한 번에 하나의 질문만 하세요.
-
-사용자의 취향이 충분히 파악되면
-다음 형식으로 PROFILE을 출력하세요.
-
-PROFILE:
-{
-    "acidity": 1-5,
-    "sweetness": 1-5,
-    "body": 1-5,
-    "chocolate": 1-5,
-    "nutty": 1-5,
-    "caramel": 1-5,
-    "fruity": 1-5,
-    "floral": 1-5,
-    "brew_method": "아메리카노/에스프레소/핸드드립/기타"
-}
-
-숫자의 의미:
-
-1 = 매우 싫음
-2 = 별로 선호하지 않음
-3 = 보통
-4 = 좋아함
-5 = 매우 좋아함
+- 로스팅 정도: {roast_preference}
+- 산미: {acidity_preference}
+- 바디감: {body_preference}
+- 단맛: {sweetness_preference}
+- 선호 향미: {flavor_preference}
+- 주 추출방법: {brew_preference}
 """
 
+    # --------------------------------------------------
+    # AI 전문 상담가 System Prompt
+    # --------------------------------------------------
 
-# ============================================================
-# 7. 사용자 취향 분석
-# ============================================================
+    system_prompt = f"""
+당신은 커피 원두와 생두를 전문적으로 상담하는
+AI Coffee Bean Consultant입니다.
 
-def analyze_preference(messages):
+당신의 주요 전문 분야는 다음과 같습니다.
 
-    conversation = "\n".join(
-        [
-            f"{m['role']}: {m['content']}"
-            for m in messages
-        ]
-    )
+1. 생두
+- 국가 및 지역별 생두 특성
+- 품종
+- 가공방식
+- 고도
+- 수확시기
+- 생두 품질
+- 결점두
+- 생두 보관
+- 생두 구매
 
-    prompt = f"""
-다음 대화를 분석해서 사용자의 커피 취향을 추정하세요.
+2. 로스팅
+- 약배전 / 중배전 / 강배전
+- 로스팅 프로파일
+- 건조구간
+- 마이야르 구간
+- 1차 크랙
+- 디벨롭먼트
+- 배출온도
+- 로스팅 수율
 
-{conversation}
+3. 커피 추출
+- 핸드드립
+- 에스프레소
+- 프렌치프레스
+- 모카포트
+- 콜드브루
+- 분쇄도
+- 물 온도
+- 추출시간
+- 추출비율
 
-반드시 JSON만 출력하세요.
+4. 커핑 및 향미
+- 산미
+- 단맛
+- 쓴맛
+- 바디
+- 밸런스
+- 애프터
+- 향미 특성
 
-{{
-    "acidity": 1-5,
-    "sweetness": 1-5,
-    "body": 1-5,
-    "chocolate": 1-5,
-    "nutty": 1-5,
-    "caramel": 1-5,
-    "fruity": 1-5,
-    "floral": 1-5,
-    "brew_method": "아메리카노/에스프레소/핸드드립/기타"
-}}
+-----------------------------------
+사용자의 기본 커피 선호도
+-----------------------------------
+
+{preference_text}
+
+-----------------------------------
+상담 원칙
+-----------------------------------
+
+사용자의 질문에 답변할 때 위의 기본 커피 선호도를
+가능하면 적극적으로 반영하세요.
+
+예를 들어 사용자가 생두 추천을 요청하면
+사용자의 선호하는 로스팅, 산미, 바디감, 단맛,
+향미를 고려하여 추천하세요.
+
+사용자가 로스팅 방법을 질문하면
+사용자의 취향에 맞는 로스팅 방향을 제안하세요.
+
+사용자가 추출방법을 질문하면
+사용자가 주로 사용하는 추출방법을 고려하세요.
+
+단, 사용자가 명시적으로 다른 취향이나 조건을 제시하면
+새롭게 제시된 조건을 우선합니다.
+
+전문용어는 사용하되 필요한 경우 쉽게 설명하세요.
+
+가능하면 답변을 다음과 같은 구조로 작성하세요.
+
+1. 결론
+2. 분석
+3. 추천 방법
+4. 추가로 고려할 사항
+
+확실하지 않은 정보는 사실처럼 단정하지 마세요.
 """
 
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {
-                "role": "system",
-                "content": (
-                    "당신은 커피 취향 분석기입니다. "
-                    "반드시 유효한 JSON만 반환하세요."
-                )
-            },
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ],
-        response_format={"type": "json_object"}
-    )
+    # --------------------------------------------------
+    # Session State
+    # --------------------------------------------------
 
-    return response.choices[0].message.content
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
 
+    # --------------------------------------------------
+    # 이전 대화 표시
+    # --------------------------------------------------
 
-# ============================================================
-# 8. 원두 매칭 알고리즘
-# ============================================================
+    for message in st.session_state.messages:
 
-def calculate_score(user, coffee):
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
 
-    weights = {
-        "acidity": 0.20,
-        "sweetness": 0.15,
-        "body": 0.15,
+    # --------------------------------------------------
+    # Chat Input
+    # --------------------------------------------------
 
-        "chocolate": 0.10,
-        "nutty": 0.10,
-        "caramel": 0.10,
-        "fruity": 0.05,
-        "floral": 0.05,
-
-        "brew_method": 0.10
-    }
-
-    score = 0
-
-    score += (
-        1 - abs(user["acidity"] - coffee.acidity) / 4
-    ) * weights["acidity"]
-
-    score += (
-        1 - abs(user["sweetness"] - coffee.sweetness) / 4
-    ) * weights["sweetness"]
-
-    score += (
-        1 - abs(user["body"] - coffee.body) / 4
-    ) * weights["body"]
-
-    score += (
-        1 - abs(user["chocolate"] - coffee.chocolate) / 4
-    ) * weights["chocolate"]
-
-    score += (
-        1 - abs(user["nutty"] - coffee.nutty) / 4
-    ) * weights["nutty"]
-
-    score += (
-        1 - abs(user["caramel"] - coffee.caramel) / 4
-    ) * weights["caramel"]
-
-    score += (
-        1 - abs(user["fruity"] - coffee.fruity) / 4
-    ) * weights["fruity"]
-
-    score += (
-        1 - abs(user["floral"] - coffee.floral) / 4
-    ) * weights["floral"]
-
-    if user["brew_method"] in coffee.brew_methods:
-        score += weights["brew_method"]
-
-    return round(score * 100, 1)
-
-
-# ============================================================
-# 9. 추천 원두 생성
-# ============================================================
-
-def recommend_coffees(user_profile):
-
-    results = []
-
-    for coffee in COFFEES:
-
-        score = calculate_score(
-            user_profile,
-            coffee
-        )
-
-        results.append({
-            "coffee": coffee,
-            "score": score
-        })
-
-    results.sort(
-        key=lambda x: x["score"],
-        reverse=True
-    )
-
-    return results[:3]
-
-
-# ============================================================
-# 10. 추천 이유 생성
-# ============================================================
-
-def generate_recommendation_text(
-    user_profile,
-    recommendations
-):
-
-    coffee_text = ""
-
-    for index, item in enumerate(
-        recommendations,
-        start=1
+    if prompt := st.chat_input(
+        "예: 산미가 적고 초콜릿 향이 강한 생두를 추천해주세요."
     ):
 
-        coffee = item["coffee"]
-
-        coffee_text += f"""
-{index}. {coffee.name}
-
-원산지: {coffee.origin}
-가공방식: {coffee.process}
-로스팅: {coffee.roast}
-
-특징:
-{coffee.description}
-
-궁합도:
-{item["score"]}%
-"""
-
-    prompt = f"""
-사용자의 커피 취향:
-
-{user_profile}
-
-추천 원두:
-
-{coffee_text}
-
-각 원두가 왜 사용자에게 잘 맞는지
-친근하고 쉽게 설명해주세요.
-
-가장 추천하는 원두부터 순서대로 설명하세요.
-
-커피 전문용어를 과하게 사용하지 마세요.
-"""
-
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {
-                "role": "system",
-                "content": "당신은 친절한 커피 큐레이터입니다."
-            },
+        # 사용자 질문 저장
+        st.session_state.messages.append(
             {
                 "role": "user",
                 "content": prompt
             }
+        )
+
+        # 사용자 질문 표시
+        with st.chat_message("user"):
+            st.markdown(prompt)
+
+        # --------------------------------------------------
+        # AI에게 전달할 메시지
+        # --------------------------------------------------
+
+        messages = [
+            {
+                "role": "system",
+                "content": system_prompt
+            }
         ]
-    )
 
-    return response.choices[0].message.content
+        messages.extend(
+            {
+                "role": m["role"],
+                "content": m["content"]
+            }
+            for m in st.session_state.messages
+        )
 
+        # --------------------------------------------------
+        # OpenAI API 호출
+        # --------------------------------------------------
 
-# ============================================================
-# 11. 기존 대화 출력
-# ============================================================
-
-for message in st.session_state.messages:
-
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
-
-
-# ============================================================
-# 12. 챗봇
-# ============================================================
-
-if prompt := st.chat_input(
-    "예: 산미는 별로고 고소한 커피가 좋아요"
-):
-
-    # 사용자 메시지 저장
-    st.session_state.messages.append(
-        {
-            "role": "user",
-            "content": prompt
-        }
-    )
-
-    with st.chat_message("user"):
-        st.markdown(prompt)
-
-
-    # --------------------------------------------------------
-    # GPT 응답
-    # --------------------------------------------------------
-
-    messages_for_gpt = [
-        {
-            "role": "system",
-            "content": SYSTEM_PROMPT
-        }
-    ]
-
-    messages_for_gpt.extend(
-        st.session_state.messages
-    )
-
-    with st.chat_message("assistant"):
-
-        response = client.chat.completions.create(
+        stream = client.chat.completions.create(
             model="gpt-4o-mini",
-            messages=messages_for_gpt,
-            stream=True
+            messages=messages,
+            stream=True,
         )
 
-        answer = st.write_stream(response)
+        # --------------------------------------------------
+        # AI 응답 출력
+        # --------------------------------------------------
 
-    st.session_state.messages.append(
-        {
-            "role": "assistant",
-            "content": answer
-        }
-    )
+        with st.chat_message("assistant"):
 
+            response = st.write_stream(stream)
 
-    # --------------------------------------------------------
-    # 취향 분석
-    # --------------------------------------------------------
-
-    try:
-
-        import json
-
-        profile_json = analyze_preference(
-            st.session_state.messages
+        # AI 응답 저장
+        st.session_state.messages.append(
+            {
+                "role": "assistant",
+                "content": response
+            }
         )
-
-        profile = json.loads(
-            profile_json
-        )
-
-        st.session_state.coffee_profile = profile
-
-        # ----------------------------------------------------
-        # 추천 생성
-        # ----------------------------------------------------
-
-        recommendations = recommend_coffees(
-            profile
-        )
-
-        st.session_state.recommendations = recommendations
-
-    except Exception as e:
-
-        # 취향 정보가 아직 부족하면 무시
-        pass
-
-
-# ============================================================
-# 13. 추천 결과 표시
-# ============================================================
-
-if st.session_state.recommendations:
-
-    st.divider()
-
-    st.header("☕ 당신에게 맞는 원두")
-
-    recommendations = (
-        st.session_state.recommendations
-    )
-
-    for index, item in enumerate(
-        recommendations,
-        start=1
-    ):
-
-        coffee = item["coffee"]
-
-        with st.container():
-
-            st.subheader(
-                f"{index}위. {coffee.name}"
-            )
-
-            st.write(
-                f"**궁합도 {item['score']}%**"
-            )
-
-            st.write(
-                coffee.description
-            )
-
-            st.caption(
-                f"원산지: {coffee.origin} · "
-                f"가공: {coffee.process} · "
-                f"로스팅: {coffee.roast}"
-            )
-
-            st.write(
-                f"추천 추출법: "
-                f"{', '.join(coffee.brew_methods)}"
-            )
